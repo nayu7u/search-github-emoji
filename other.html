@@ -66,15 +66,14 @@
       const initializeParquet = async (db) => {
         const conn = await db.connect();
         try {
+          // Parquetファイルを取得
           const res = await fetch("df.parquet");
+          const arrayBuffer = await res.arrayBuffer();
+          // const uint8Array = new Uint8Array(arrayBuffer);
           await db.registerFileBuffer('df.parquet', new Uint8Array(await res.arrayBuffer()));
-          const conn = await db.connect();
-          await conn.query(`
-            INSTALL parquet;
-            LOAD parquet;
-            CREATE TABLE df AS SELECT *
-            FROM read_parquet('df.parquet');
-          `);
+          // メモリにParquetデータをロード
+          // await conn.query("CREATE TABLE parquet_table AS SELECT * FROM parquet_scan(?);", [uint8Array]);
+          // console.log("Parquet file loaded into table 'parquet_table'.");
         } catch (error) {
           console.error("Error loading Parquet file:", error.message);
         } finally {

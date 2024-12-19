@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DuckDB Parquet Table Viewer</title>
+</head>
+<body>
+    <h1>DuckDB Parquet Viewer</h1>
+    <div>
+        <table id="data-table" border="1">
+            <thead id="table-head"></thead>
+            <tbody id="table-body"></tbody>
+        </table>
+    </div>
+
+    <script>
+        (async () => {
+            const duckdb = window.duckdbduckdbWasm;
+            const PARQUET_FILE = 'df.parquet';
+
+            // DuckDBの初期化
+            const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
+
+            const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
+
+            // Worker URLの作成
+            const worker_url = URL.createObjectURL(
+                new Blob([`importScripts("${bundle.mainWorker}");`], { type: 'text/javascript' })
+            );
+
+            const worker = new Worker(worker_url);
+            const logger = new duckdb.ConsoleLogger();
+            const db = new duckdb.DuckDB(worker, logger);
+
+            await db.instantiate(bundle);
+
+            const conn = await db.connect();
+
+            // ParquetファイルをFetch
+            const fetchParquet = async () => {
+                const response = await fetch(PARQUET_FILE);
+                const buffer = await response.arrayBuffer();
+                await conn.registerFileBuffer(PARQUET_FILE, buffer);
+            };
+
+            // SELECTクエリを実行して結果を取得
+            const queryAndRender = async () => {
+                await conn.query(`CREATE TABLE temp_table AS SELECT * FROM read_parquet('${PARQUET_FILE}');`);
+                const result = await conn.query(`SELECT * FROM temp_table;`);
+                renderTable(result);
+            };
+
+            // テーブルをHTMLに描画する関数
+            const renderTable = (result) => {
+                const tableHead = document.getElementById('table-head');
+                const tableBody = document.getElementById('table-body');
+
+                tableHead.innerHTML = '';
+                tableBody.innerHTML = '';
+
+                const columns = result.schema.fields.map(field => field.name);
+                const headerRow = document.createElement('tr');
+                columns.forEach(col => {
+                    const th = document.createElement('th');
+                    th.textContent = col;
+                    headerRow.appendChild(th);
+                });
+                tableHead.appendChild(headerRow);
+
+                for (const row of result.toArray()) {
+                    const tr = document.createElement('tr');
+                    columns.forEach(col => {
+                        const td = document.createElement('td');
+                        td.textContent = row[col];
+                        tr.appendChild(td);
+                    });
+                    tableBody.appendChild(tr);
+                }
+            };
+
+            // 実行フロー
+            try {
+                await fetchParquet();
+                await queryAndRender();
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        })();
+    </script>
+    <script type="module">
+      import * as duckdbduckdbWasm from "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.1-dev106.0/+esm";
+      window.duckdbduckdbWasm = duckdbduckdbWasm;
+    </script>
+</body>
+</html>
