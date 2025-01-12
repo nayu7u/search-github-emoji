@@ -41,6 +41,9 @@
     <div class="output">
       <h2>Results</h2>
       <pre id="queryResults">Results will appear here...</pre>
+      <select id="nameSelect">
+        <!-- Options will be inserted here -->
+      </select>
     </div>
     <script>
       const getDb = async () => {
@@ -89,9 +92,33 @@
         // ORDER BY similarity DESC
         // LIMIT 10;
       };
+      const loadNames = async () => {
+        const nameSelect = document.getElementById("nameSelect");
+        try {
+          const db = await getDb();
+          const conn = await db.connect();
+          const namesResult = await conn.query("SELECT name FROM embedding");
+          const names = namesResult.toArray();
+
+          // Clear existing options
+          nameSelect.innerHTML = "";
+
+          // Populate select with names
+          names.forEach(row => {
+            const option = document.createElement("option");
+            option.value = row.name;
+            option.textContent = row.name;
+            nameSelect.appendChild(option);
+          });
+
+        } catch (error) {
+          console.error("Error loading names:", error.message);
+        }
+      };
       document.getElementById("runQuery").addEventListener("click", async () => {
         const sqlInput = document.getElementById("sqlInput").value;
         const resultElement = document.getElementById("queryResults");
+        const nameTableBody = document.getElementById("nameTable").querySelector("tbody");
         try {
           const db = await getDb();
           const conn = await db.connect();
@@ -101,6 +128,7 @@
           resultElement.textContent = `Error: ${error.message}`;
         }
       });
+      window.addEventListener("load", loadNames);
     </script>
     <script type="module">
       import * as duckdbduckdbWasm from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/+esm'
