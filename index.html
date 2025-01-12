@@ -44,6 +44,7 @@
       <select id="nameSelect">
         <!-- Options will be inserted here -->
       </select>
+      <button id="searchName">Search</button>
     </div>
     <script>
       const getDb = async () => {
@@ -123,6 +124,18 @@
           const db = await getDb();
           const conn = await db.connect();
           const result = await conn.query(sqlInput);
+          resultElement.textContent = JSON.stringify(result.toArray(), null, 2);
+        } catch (error) {
+          resultElement.textContent = `Error: ${error.message}`;
+        }
+      });
+      document.getElementById("searchName").addEventListener("click", async () => {
+        const selectedName = document.getElementById("nameSelect").value;
+        const resultElement = document.getElementById("queryResults");
+        try {
+          const db = await getDb();
+          const conn = await db.connect();
+          const result = await conn.query(`SELECT * FROM embedding WHERE name LIKE '%${selectedName}%'`);
           resultElement.textContent = JSON.stringify(result.toArray(), null, 2);
         } catch (error) {
           resultElement.textContent = `Error: ${error.message}`;
