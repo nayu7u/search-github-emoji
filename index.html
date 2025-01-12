@@ -44,8 +44,9 @@
     </div>
     <script>
       const getDb = async () => {
-        const duckdb = window.duckdbduckdbWasm;
         if (window._db) return window._db;
+
+        const duckdb = window.duckdb;
         const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
         const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
         const worker_url = URL.createObjectURL(
@@ -69,17 +70,24 @@
           const res = await fetch("df.parquet");
           await db.registerFileBuffer('df.parquet', new Uint8Array(await res.arrayBuffer()));
           const conn = await db.connect();
+          const dimensions = [...Array(512).keys()].map(i => `"${i + 1}dim"`);
           await conn.query(`
             INSTALL parquet;
             LOAD parquet;
-            CREATE TABLE df AS SELECT *
-            FROM read_parquet('df.parquet');
+            CREATE TABLE embedding (name VARCHAR, ary FLOAT[512]);
+            INSERT INTO embedding SELECT name, array_value(${dimensions}) AS ary FROM read_parquet('df.parquet');
           `);
         } catch (error) {
           console.error("Error loading Parquet file:", error.message);
         } finally {
           await conn.close();
         }
+        // select
+        //   name,
+        //   array_cosine_similarity(e.ary, (select ary from embedding where name = 'cat')) AS similarity 
+        // FROM embedding AS e
+        // ORDER BY similarity DESC
+        // LIMIT 10;
       };
       document.getElementById("runQuery").addEventListener("click", async () => {
         const sqlInput = document.getElementById("sqlInput").value;
@@ -95,8 +103,8 @@
       });
     </script>
     <script type="module">
-      import * as duckdbduckdbWasm from "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.1-dev106.0/+esm";
-      window.duckdbduckdbWasm = duckdbduckdbWasm;
+      import * as duckdbduckdbWasm from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/+esm'
+      window.duckdb = duckdbduckdbWasm;
     </script>
   </body>
 </html>
