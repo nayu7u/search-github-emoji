@@ -1,0 +1,1 @@
+wget https://api.github.com/emojis -O _data.json

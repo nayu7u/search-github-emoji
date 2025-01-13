@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import json
 
 from PIL import Image
 from sentence_transformers import SentenceTransformer
@@ -24,4 +25,6 @@ columns = [f"{i}dim" for i in range(1, img_emb[0].size + 1)]
 
 df = pd.DataFrame(img_emb, columns=columns, index=image_labels)
 df.index.name = "name"
+mapping = json.load(open("mapping.json", "r"))
+df["unicode"] = [mapping[name] for name in image_labels]
 df.to_parquet("./df.parquet", compression="zstd")

@@ -31,6 +31,15 @@
         white-space: pre-wrap;
         word-wrap: break-word;
       }
+      #nameSelect option {
+        font-size: 2em; /* フォントサイズを大きくする */
+      }
+      #nameSelect {
+        font-size: 2em; /* フォントサイズを大きくする */
+      }
+      select, option {
+        font-family: Arial, "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+      }
     </style>
   </head>
   <body>
@@ -78,8 +87,8 @@
           await conn.query(`
             INSTALL parquet;
             LOAD parquet;
-            CREATE TABLE embedding (name VARCHAR, ary FLOAT[512]);
-            INSERT INTO embedding SELECT name, array_value(${dimensions}) AS ary FROM read_parquet('df.parquet');
+            CREATE TABLE embedding (name VARCHAR, unicode VARCHAR, ary FLOAT[512]);
+            INSERT INTO embedding SELECT name, unicode, array_value(${dimensions}) AS ary FROM read_parquet('df.parquet');
           `);
         } catch (error) {
           console.error("Error loading Parquet file:", error.message);
@@ -98,7 +107,7 @@
         try {
           const db = await getDb();
           const conn = await db.connect();
-          const namesResult = await conn.query("SELECT name FROM embedding");
+          const namesResult = await conn.query("SELECT unicode FROM embedding");
           const names = namesResult.toArray();
 
           // Clear existing options
@@ -107,8 +116,10 @@
           // Populate select with names
           names.forEach(row => {
             const option = document.createElement("option");
-            option.value = row.name;
-            option.textContent = row.name;
+            option.value = row.unicode;
+            const codePoints = row.unicode.split('-').map(u => parseInt(u, 16));
+            const emoji = String.fromCodePoint(...codePoints);
+            option.textContent = emoji;
             nameSelect.appendChild(option);
           });
 
@@ -135,7 +146,7 @@
         try {
           const db = await getDb();
           const conn = await db.connect();
-          const result = await conn.query(`SELECT * FROM embedding WHERE name LIKE '%${selectedName}%'`);
+          const result = await conn.query(`SELECT name, unicode FROM embedding WHERE unicode LIKE '%${selectedName}%'`);
           resultElement.textContent = JSON.stringify(result.toArray(), null, 2);
         } catch (error) {
           resultElement.textContent = `Error: ${error.message}`;
