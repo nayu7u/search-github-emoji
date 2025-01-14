@@ -31,10 +31,7 @@
         white-space: pre-wrap;
         word-wrap: break-word;
       }
-      #nameSelect option {
-        font-size: 2em; /* フォントサイズを大きくする */
-      }
-      #nameSelect {
+      #nameSelect option, #nameSelect {
         font-size: 2em; /* フォントサイズを大きくする */
       }
       select, option {
@@ -53,10 +50,12 @@
       </select>
       <button id="searchName">Search</button>
       <table>
-        <th>
-          <td>Name</td>
-          <td>Unicode</td>
-        </th>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Unicode</th>
+          </tr>
+        </thead>
         <tbody id="queryResults">
           <!-- Results will be inserted here -->
         </tbody>
@@ -80,16 +79,15 @@
         await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
         URL.revokeObjectURL(worker_url);
         window._db = db;
-        // 初回実行時にParquetファイルを読み込む
         await initializeParquet(db);
         return db;
       };
+
       const initializeParquet = async (db) => {
         const conn = await db.connect();
         try {
           const res = await fetch("df.parquet");
           await db.registerFileBuffer('df.parquet', new Uint8Array(await res.arrayBuffer()));
-          const conn = await db.connect();
           const dimensions = [...Array(512).keys()].map(i => `"${i + 1}dim"`);
           await conn.query(`
             INSTALL parquet;
@@ -103,6 +101,7 @@
           await conn.close();
         }
       };
+
       const loadNames = async () => {
         const nameSelect = document.getElementById("nameSelect");
         try {
@@ -111,22 +110,19 @@
           const namesResult = await conn.query("SELECT unicode FROM embedding");
           const names = namesResult.toArray();
 
-          // Clear existing options
           nameSelect.innerHTML = "";
-
-          // Populate select with names
           names.forEach(row => {
             const option = document.createElement("option");
             option.value = row.unicode;
             option.innerHTML = row.unicode.split('-').map(u => `&#x${u};`).join('&#x200D;');
             nameSelect.appendChild(option);
           });
-
         } catch (error) {
           console.error("Error loading names:", error.message);
         }
       };
-      document.getElementById("searchName").addEventListener("click", async () => {
+
+      const searchName = async () => {
         const selectedName = document.getElementById("nameSelect").value;
         const resultElement = document.getElementById("queryResults");
         try {
@@ -152,7 +148,9 @@
         } catch (error) {
           resultElement.textContent = `Error: ${error.message}`;
         }
-      });
+      };
+
+      document.getElementById("searchName").addEventListener("click", searchName);
       window.addEventListener("load", loadNames);
     </script>
     <script type="module">
