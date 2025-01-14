@@ -40,20 +40,27 @@
       select, option {
         font-family: Arial, "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
       }
+      #queryResults th, td {
+        font-size: 2em; /* フォントサイズを大きくする */
+      }
     </style>
   </head>
   <body>
-    <h1>DuckDB SQL Runner</h1>
-    <p>Enter your SQL query below and press "Run".</p>
-    <textarea id="sqlInput">SHOW ALL TABLES;</textarea>
-    <button id="runQuery">Run</button>
     <div class="output">
       <h2>Results</h2>
-      <pre id="queryResults">Results will appear here...</pre>
       <select id="nameSelect">
         <!-- Options will be inserted here -->
       </select>
       <button id="searchName">Search</button>
+      <table>
+        <th>
+          <td>Name</td>
+          <td>Unicode</td>
+        </th>
+        <tbody id="queryResults">
+          <!-- Results will be inserted here -->
+        </tbody>
+      </table>
     </div>
     <script>
       const getDb = async () => {
@@ -95,12 +102,6 @@
         } finally {
           await conn.close();
         }
-        // select
-        //   name,
-        //   array_cosine_similarity(e.ary, (select ary from embedding where name = 'cat')) AS similarity 
-        // FROM embedding AS e
-        // ORDER BY similarity DESC
-        // LIMIT 10;
       };
       const loadNames = async () => {
         const nameSelect = document.getElementById("nameSelect");
@@ -117,9 +118,7 @@
           names.forEach(row => {
             const option = document.createElement("option");
             option.value = row.unicode;
-            const codePoints = row.unicode.split('-').map(u => parseInt(u, 16));
-            const emoji = String.fromCodePoint(...codePoints);
-            option.textContent = emoji;
+            option.innerHTML = row.unicode.split('-').map(u => `&#x${u};`).join('&#x200D;');
             nameSelect.appendChild(option);
           });
 
@@ -127,27 +126,29 @@
           console.error("Error loading names:", error.message);
         }
       };
-      document.getElementById("runQuery").addEventListener("click", async () => {
-        const sqlInput = document.getElementById("sqlInput").value;
-        const resultElement = document.getElementById("queryResults");
-        const nameTableBody = document.getElementById("nameTable").querySelector("tbody");
-        try {
-          const db = await getDb();
-          const conn = await db.connect();
-          const result = await conn.query(sqlInput);
-          resultElement.textContent = JSON.stringify(result.toArray(), null, 2);
-        } catch (error) {
-          resultElement.textContent = `Error: ${error.message}`;
-        }
-      });
       document.getElementById("searchName").addEventListener("click", async () => {
         const selectedName = document.getElementById("nameSelect").value;
         const resultElement = document.getElementById("queryResults");
         try {
           const db = await getDb();
           const conn = await db.connect();
-          const result = await conn.query(`SELECT name, unicode FROM embedding WHERE unicode LIKE '%${selectedName}%'`);
-          resultElement.textContent = JSON.stringify(result.toArray(), null, 2);
+          const result = await conn.query(`
+            SELECT
+              name,
+              unicode,
+              array_cosine_similarity(e.ary, (SELECT ary FROM embedding WHERE unicode LIKE '%${selectedName}%')) AS similarity 
+            FROM embedding AS e
+            ORDER BY similarity DESC
+            LIMIT 10;
+          `);
+          resultElement.innerHTML = "";
+          result.toArray().forEach(row => {
+            const tr = resultElement.insertRow(-1);
+            const tdName = tr.insertCell(-1);
+            tdName.textContent = row.name;
+            const tdUnicode = tr.insertCell(-1);
+            tdUnicode.innerHTML = row.unicode.split('-').map(u => `&#x${u};`).join('&#x200D;');
+          });
         } catch (error) {
           resultElement.textContent = `Error: ${error.message}`;
         }
