@@ -9,13 +9,6 @@
         font-family: Arial, sans-serif;
         margin: 20px;
       }
-      textarea {
-        width: 100%;
-        height: 100px;
-        font-family: monospace;
-        font-size: 14px;
-        margin-bottom: 10px;
-      }
       button {
         padding: 10px 20px;
         font-size: 16px;
@@ -37,8 +30,15 @@
       select, option {
         font-family: Arial, "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
       }
-      #queryResults th, td {
-        font-size: 2em; /* フォントサイズを大きくする */
+      .resultUnicode{
+        font-size: 4em; /* フォントサイズを大きくする */
+      }
+      table, th, td {
+        border: 1px solid #ccc;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
       }
     </style>
   </head>
@@ -54,6 +54,7 @@
           <tr>
             <th>Name</th>
             <th>Unicode</th>
+            <th>Cosine similarity</th>
           </tr>
         </thead>
         <tbody id="queryResults">
@@ -89,12 +90,15 @@
           const res = await fetch("df.parquet");
           await db.registerFileBuffer('df.parquet', new Uint8Array(await res.arrayBuffer()));
           const dimensions = [...Array(512).keys()].map(i => `"${i + 1}dim"`);
-          await conn.query(`
+          const result = await conn.query(`
             INSTALL parquet;
             LOAD parquet;
             CREATE TABLE embedding (name VARCHAR, unicode VARCHAR, ary FLOAT[512]);
-            INSERT INTO embedding SELECT name, unicode, array_value(${dimensions}) AS ary FROM read_parquet('df.parquet');
+            INSERT INTO embedding BY NAME SELECT name, unicode, array_value(${dimensions}) AS ary FROM read_parquet('df.parquet');
+            DELETE FROM embedding WHERE unicode IS NULL;
+            select name, unicode, from embedding where unicode is null;
           `);
+          console.log(result.toArray())
         } catch (error) {
           console.error("Error loading Parquet file:", error.message);
         } finally {
@@ -132,10 +136,10 @@
             SELECT
               name,
               unicode,
-              array_cosine_similarity(e.ary, (SELECT ary FROM embedding WHERE unicode LIKE '%${selectedName}%')) AS similarity 
+              array_cosine_similarity(e.ary, (SELECT ary FROM embedding WHERE unicode LIKE '${selectedName}')) AS similarity 
             FROM embedding AS e
             ORDER BY similarity DESC
-            LIMIT 10;
+            LIMIT 20;
           `);
           resultElement.innerHTML = "";
           result.toArray().forEach(row => {
@@ -144,6 +148,9 @@
             tdName.textContent = row.name;
             const tdUnicode = tr.insertCell(-1);
             tdUnicode.innerHTML = row.unicode.split('-').map(u => `&#x${u};`).join('&#x200D;');
+            tdUnicode.classList.add("resultUnicode");
+            const tdSimilarity = tr.insertCell(-1);
+            tdSimilarity.textContent = row.similarity;
           });
         } catch (error) {
           resultElement.textContent = `Error: ${error.message}`;
