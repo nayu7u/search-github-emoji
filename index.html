@@ -135,7 +135,7 @@
             SELECT
               name,
               unicode,
-              array_cosine_similarity(e.ary, (SELECT ary FROM embedding WHERE unicode LIKE '${selectedName}')) AS similarity 
+              array_cosine_similarity(e.ary, (SELECT ary FROM embedding WHERE unicode LIKE '${selectedName}' LIMIT 1)) AS similarity 
             FROM embedding AS e
             ORDER BY similarity DESC
             LIMIT 20;
